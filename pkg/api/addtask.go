@@ -2,108 +2,169 @@ package api
 
 import (
 	"encoding/json"
+	"final_project/pkg/db"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
-
-	"final_project/pkg/db"
-	"strconv"
 )
 
-// Заглушка — проверяет формат repeat, например "d 5", "daily", "weekly"
-func validateRepeatFormat(repeat string) bool {
-	repeat = strings.TrimSpace(repeat)
-	if repeat == "" {
-		return true // пустое значение — допустимо
-	}
-	// Простейшая проверка
-	if repeat == "daily" || repeat == "weekly" {
-		return true
-	}
-	if strings.HasPrefix(repeat, "d ") && len(repeat) > 2 {
-		return true
-	}
-	return false
-}
-
-// Возвращает true, если дата раньше сегодняшней (в формате YYYYMMDD)
-func isBeforeToday(dateStr string) bool {
-	if len(dateStr) != 8 {
-		return false
-	}
-	t, err := time.Parse("20060102", dateStr)
-	if err != nil {
-		return false
-	}
-	today := time.Now().Truncate(24 * time.Hour)
-	return t.Before(today)
-}
-
-// Заглушка для NextDate — возвращает ту же дату или модифицированную по repeat
-func NextDate(startDate, repeat string) string {
-	if repeat == "" {
-		return startDate
-	}
-	// Для примера — daily = +1 день
-	d, err := time.Parse("20060102", startDate)
-	if err != nil {
-		return startDate
-	}
-	switch repeat {
-	case "daily":
-		return d.AddDate(0, 0, 1).Format("20060102")
-	case "weekly":
-		return d.AddDate(0, 0, 7).Format("20060102")
-	}
-	// пример для "d N"
-	if strings.HasPrefix(repeat, "d ") {
-		parts := strings.Split(repeat, " ")
-		if len(parts) == 2 {
-			n, _ := strconv.Atoi(parts[1])
-			return d.AddDate(0, 0, n).Format("20060102")
-		}
-	}
-	return startDate
-}
+const dateFormat = "20060102"
 
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
+	// Разрешаем только POST
 	if r.Method != http.MethodPost {
-		writeJSON(w, map[string]string{"error": "method not allowed"})
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var t db.Task
-	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+	var task db.Task
+
+	// Читаем JSON из запроса
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
 		writeJSON(w, map[string]string{"error": "invalid json"})
 		return
 	}
 
-	// Проверка repeat
-	if !validateRepeatFormat(t.Repeat) {
-		writeJSON(w, map[string]string{"error": "invalid repeat format"})
+	// Проверка заголовка задачи
+	if strings.TrimSpace(task.Title) == "" {
+		writeJSON(w, map[string]string{"error": "task title is required"})
 		return
 	}
 
-	// Проверка на дату в прошлом
-	if isBeforeToday(t.Date) {
-		writeJSON(w, map[string]string{"error": "date is before today"})
+	// Новый способ проверки repeat — без изменения даты
+	if strings.TrimSpace(task.Repeat) != "" {
+		if err := validateRepeatFormat(task.Repeat); err != nil {
+			writeJSON(w, map[string]string{"error": "invalid repeat format"})
+			return
+		}
+	}
+
+	// Обработка даты по правилам ТЗ
+	if err := processTaskDates(&task); err != nil {
+		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
 
-	// Вычислим дату следующей задачи (если нужна)
-	next := NextDate(t.Date, t.Repeat)
-	_ = next // чтобы не было "declared and not used"
-
-	// Вставка в БД
-	_, err := db.DB.Exec(`
-		INSERT INTO scheduler (date, title, comment, repeat)
-		VALUES (?, ?, ?, ?)`,
-		t.Date, t.Title, t.Comment, t.Repeat,
-	)
+	// Сохранение задачи в БД
+	id, err := db.AddTask(&task)
 	if err != nil {
 		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
 
-	writeJSON(w, map[string]string{}) // успех
+	// Ответ с ID сохранённой задачи
+	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
+}
+
+// processTaskDates обрабатывает дату задачи по требованиям ТЗ
+func processTaskDates(task *db.Task) error {
+	now := time.Now()
+	today := now.Format(dateFormat)
+
+	// Если дата пустая — ставим сегодняшнюю
+	if strings.TrimSpace(task.Date) == "" {
+		task.Date = today
+	}
+
+	// Проверка корректности формата даты
+	t, err := time.Parse(dateFormat, task.Date)
+	if err != nil {
+		return fmt.Errorf("invalid date format")
+	}
+
+	// Проверка на "сегодня"
+	if t.Year() == now.Year() &&
+		t.Month() == now.Month() &&
+		t.Day() == now.Day() {
+		return nil
+	}
+
+	// Если дата в прошлом
+	if isBeforeToday(t, now) {
+		if strings.TrimSpace(task.Repeat) == "" {
+			// Без повторения — ставим сегодняшнюю дату
+			task.Date = today
+		} else {
+			// С повторением — считаем следующую дату
+			next, err := NextDate(now, today, task.Repeat)
+			if err != nil {
+				return err
+			}
+			task.Date = next
+		}
+	}
+
+	// Если дата в будущем — оставляем
+	return nil
+}
+
+// Сравнение дат без времени (только yyyyMMdd)
+func isBeforeToday(date, now time.Time) bool {
+	return date.Format(dateFormat) < now.Format(dateFormat)
+}
+
+// Запись JSON-ответа
+func writeJSON(w http.ResponseWriter, data any) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	json.NewEncoder(w).Encode(data)
+}
+
+// validateRepeatFormat проверяет синтаксис repeat, не меняя дату
+func validateRepeatFormat(repeat string) error {
+	parts := strings.Fields(repeat)
+	if len(parts) == 0 {
+		return fmt.Errorf("invalid format")
+	}
+
+	rule := strings.ToLower(strings.TrimSpace(parts[0]))
+	switch rule {
+	case "d":
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid format")
+		}
+		n, err := strconv.Atoi(strings.ReplaceAll(parts[1], "+", ""))
+		if err != nil || n < 1 || n > 400 {
+			return fmt.Errorf("invalid days number")
+		}
+	case "y":
+		if len(parts) != 1 {
+			return fmt.Errorf("invalid format")
+		}
+	case "w":
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid format")
+		}
+		days := strings.Split(parts[1], ",")
+		for _, d := range days {
+			v, err := strconv.Atoi(strings.TrimSpace(d))
+			if err != nil || v < 1 || v > 7 {
+				return fmt.Errorf("invalid weekday")
+			}
+		}
+	case "m":
+		if len(parts) < 2 || len(parts) > 3 {
+			return fmt.Errorf("invalid format")
+		}
+		days := strings.Split(parts[1], ",")
+		for _, d := range days {
+			v, err := strconv.Atoi(strings.TrimSpace(d))
+			if err != nil || !(v >= 1 && v <= 31 || v == -1 || v == -2) {
+				return fmt.Errorf("invalid month day")
+			}
+		}
+		if len(parts) == 3 {
+			months := strings.Split(parts[2], ",")
+			for _, m := range months {
+				v, err := strconv.Atoi(strings.TrimSpace(m))
+				if err != nil || v < 1 || v > 12 {
+					return fmt.Errorf("invalid month")
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("invalid format")
+	}
+	return nil
 }
