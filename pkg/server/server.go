@@ -6,22 +6,22 @@ import (
 	"os"
 
 	"final_project/pkg/api"
+
+	
 )
 
-func Start(webDir string) error {
-	port := os.Getenv("TODO_PORT")
-	if port == "" {
-		port = "7540"
-	}
-	mux := http.NewServeMux()
+var webDir = "./web"
 
-	api.Init(mux)
+func Start() error {
+	port := "7540"
+	if envPort := os.Getenv("TODO_PORT"); envPort != "" {
+	port = envPort
+}
 
-	fs := http.FileServer(http.Dir(webDir))
-	mux.Handle("/", fs)
+api.InitRoutes()
 
-	
-	fmt.Printf("Server running on port %s\n", port)
-	
-	return http.ListenAndServe(":"+port, mux)
+http.Handle("/", http.FileServer(http.Dir(webDir)))
+
+fmt.Printf("starting server on :%s\n", port)
+return http.ListenAndServe(":"+port, nil)
 }
