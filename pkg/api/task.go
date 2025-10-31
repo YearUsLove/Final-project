@@ -122,4 +122,4 @@ func updateTask(id int64, t *db.Task) error {
 		return fmt.Errorf("incorrect id for updating task")
 	}
 	return nil
-Ъ
+}
