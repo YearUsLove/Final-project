@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-const dateFormat = "20060102"
 
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Разрешаем только POST
@@ -47,15 +46,15 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Сохранение задачи в БД
-	id, err := db.AddTask(&task)
-	if err != nil {
-		writeJSON(w, map[string]string{"error": err.Error()})
-		return
-	}
+	// // Сохранение задачи в БД
+	// id, err := db.AddTask(&task)
+	// if err != nil {
+	// 	writeJSON(w, map[string]string{"error": err.Error()})
+	// 	return
+	// }
 
 	// Ответ с ID сохранённой задачи
-	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
+// 	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
 }
 
 // processTaskDates обрабатывает дату задачи по требованиям ТЗ
