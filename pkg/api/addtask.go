@@ -10,11 +10,10 @@ import (
 	"time"
 )
 
-
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	// Разрешаем только POST
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -42,19 +41,19 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Обработка даты по правилам ТЗ
 	if err := processTaskDates(&task); err != nil {
+		writeJSON(w, map[string]string{"error": err.Error(), "flag": "1"})
+		return
+	}
+
+	//Сохранение задачи в БД
+	id, err := db.AddTask(&task)
+	if err != nil {
 		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
 
-	// // Сохранение задачи в БД
-	// id, err := db.AddTask(&task)
-	// if err != nil {
-	// 	writeJSON(w, map[string]string{"error": err.Error()})
-	// 	return
-	// }
-
-	// Ответ с ID сохранённой задачи
-// 	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
+	//Ответ с ID сохранённой задачи
+	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
 }
 
 // processTaskDates обрабатывает дату задачи по требованиям ТЗ

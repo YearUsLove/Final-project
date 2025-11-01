@@ -103,7 +103,7 @@ func TestAddTask(t *testing.T) {
 
 		e, ok := m["error"]
 		assert.False(t, !ok || len(fmt.Sprint(e)) == 0,
-			"Ожидается ошибка для задачи %v", v)
+			"Ожидается ошибка для задачи %v v: %v, err: %v, m: %v", v, v, err, m)
 	}
 
 	now := time.Now()
