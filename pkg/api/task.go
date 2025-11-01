@@ -31,6 +31,5 @@ func listTasksHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
-    
 	writeJSON(w, TasksResp{Tasks: tasks})
 }
