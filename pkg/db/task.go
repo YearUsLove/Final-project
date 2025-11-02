@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -30,14 +31,12 @@ func Tasks(limit int, search string) ([]*Task, error) {
 	search = strings.TrimSpace(search)
 
 	if search == "" {
-
 		rows, err = DB.Query(`
 		    SELECT id, date, title, comment, repeat
 			FROM scheduler
 			ORDER BY date ASC
 			LIMIT ?`, limit)
 	} else if parsedDate, parseErr := time.Parse("02.01.2006", search); parseErr == nil {
-
 		dateStr := parsedDate.Format("20060102")
 		rows, err = DB.Query(`
 		SELECT id, date, title, comment, repeat
@@ -46,7 +45,6 @@ func Tasks(limit int, search string) ([]*Task, error) {
 		ORDER BY date ASC
 		LIMIT ?`, dateStr, limit)
 	} else {
-
 		likeStr := "%" + search + "%"
 		rows, err = DB.Query(`
 		SELECT id, date, title, comment, repeat
@@ -75,5 +73,38 @@ func Tasks(limit int, search string) ([]*Task, error) {
 	}
 
 	return tasks, nil
-
 }
+
+// GetTask возвращает задачу по id
+func GetTask(id string) (*Task, error) {
+	row := DB.QueryRow(
+		`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`, id)
+
+	var t Task
+	if err := row.Scan(&t.ID, &t.Date, &t.Title, &t.Comment, &t.Repeat); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("task is not found")
+		}
+		return nil, err
+	}
+	return &t, nil
+}
+
+// UpdateTask обновляет задачу по id
+func UpdateTask(task *Task) error {
+	query := `UPDATE scheduler SET date=?, title=?, comment=?, repeat=? WHERE id=?`
+	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
+	if err != nil {
+		return err
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("task is not found")
+	}
+	return nil
+}
+
+
