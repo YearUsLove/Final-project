@@ -5,7 +5,6 @@ import (
 	"os"
 
 	_ "modernc.org/sqlite"
-
 )
 
 var DB *sql.DB
@@ -21,22 +20,22 @@ CREATE TABLE scheduler (
 CREATE INDEX idx_date ON scheduler(date);
 	`
 
-	  func Init(dbFile string) error {
-		install := false
-		if _, err := os.Stat(dbFile); err != nil {
-			install = true 
-		}
+func Init(dbFile string) error {
+	install := false
+	if _, err := os.Stat(dbFile); err != nil {
+		install = true
+	}
 
-		var err error
-		DB, err = sql.Open("sqlite", dbFile)
-		if err != nil {
+	var err error
+	DB, err = sql.Open("sqlite", dbFile)
+	if err != nil {
+		return err
+	}
+
+	if install {
+		if _, err = DB.Exec(schema); err != nil {
 			return err
 		}
-
-		if install {
-			if _, err = DB.Exec(schema); err != nil {
-				return err
-			}
-		}
-		return nil
-	  }
+	}
+	return nil
+}
