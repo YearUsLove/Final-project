@@ -10,7 +10,6 @@ import (
 
 const dateFormat = "20060102"
 
-// ----------------- HTTP Handler -----------------
 func nextDateHandler(w http.ResponseWriter, r *http.Request) {
 	nowStr := r.URL.Query().Get("now")
 	dateStr := r.URL.Query().Get("date")
@@ -32,7 +31,6 @@ func nextDateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(next))
 }
 
-// ----------------- Core Logic -----------------
 func NextDate(now time.Time, dateStr string, repeat string) (string, error) {
 	if strings.TrimSpace(repeat) == "" {
 		return "", fmt.Errorf("empty repeat rule")
@@ -48,7 +46,6 @@ func NextDate(now time.Time, dateStr string, repeat string) (string, error) {
 		return "", fmt.Errorf("invalid format")
 	}
 
-	// Нормализация первого токена repeat
 	rule := strings.ToLower(strings.TrimSpace(parts[0]))
 
 	switch rule {
@@ -65,7 +62,6 @@ func NextDate(now time.Time, dateStr string, repeat string) (string, error) {
 	}
 }
 
-// ----------------- Rule "d" -----------------
 func handleDaysRule(date, now time.Time, parts []string) (string, error) {
 	if len(parts) != 2 {
 		return "", fmt.Errorf("invalid format")
@@ -75,10 +71,8 @@ func handleDaysRule(date, now time.Time, parts []string) (string, error) {
 		return "", fmt.Errorf("invalid days number")
 	}
 
-	// Делаем как минимум один шаг от исходной даты
 	date = date.AddDate(0, 0, n)
 
-	// Крутим, пока дата не станет строго > now
 	for !date.After(now) {
 		date = date.AddDate(0, 0, n)
 	}
@@ -86,11 +80,9 @@ func handleDaysRule(date, now time.Time, parts []string) (string, error) {
 	return date.Format(dateFormat), nil
 }
 
-// ----------------- Rule "y" -----------------
 func handleYearsRule(date, now time.Time) (string, error) {
 	original := date
 
-	// Идём вперёд по циклам, пока дата ≤ now
 	for !date.After(now) {
 		year := date.Year() + 1
 		if date.Month() == time.February && date.Day() == 29 && !isLeapYear(year) {
@@ -100,7 +92,6 @@ func handleYearsRule(date, now time.Time) (string, error) {
 		}
 	}
 
-	// Если исходная дата в будущем и совпадает с получившейся — нужно взять следующий цикл
 	if original.After(now) && date.Equal(original) {
 		year := date.Year() + 1
 		if date.Month() == time.February && date.Day() == 29 && !isLeapYear(year) {
@@ -117,7 +108,6 @@ func isLeapYear(year int) bool {
 	return (year%4 == 0 && year%100 != 0) || (year%400 == 0)
 }
 
-// ----------------- Rule "w" -----------------
 func handleWeeksRule(date, now time.Time, parts []string) (string, error) {
 	if len(parts) != 2 {
 		return "", fmt.Errorf("invalid format")
@@ -130,9 +120,9 @@ func handleWeeksRule(date, now time.Time, parts []string) (string, error) {
 			return "", fmt.Errorf("invalid weekday")
 		}
 		if v == 7 {
-			weekdays = append(weekdays, 0) // Sunday
+			weekdays = append(weekdays, 0)
 		} else {
-			weekdays = append(weekdays, v) // Monday=1...
+			weekdays = append(weekdays, v) 
 		}
 	}
 
@@ -155,7 +145,6 @@ func handleWeeksRule(date, now time.Time, parts []string) (string, error) {
 	}
 }
 
-// ----------------- Rule "m" -----------------
 func handleMonthsRule(date, now time.Time, parts []string) (string, error) {
 	if len(parts) < 2 || len(parts) > 3 {
 		return "", fmt.Errorf("invalid format")
@@ -183,7 +172,7 @@ func handleMonthsRule(date, now time.Time, parts []string) (string, error) {
 
 	for {
 		candidate := time.Time{}
-		for i := 0; i < 24; i++ { // проверим 2 года вперёд
+		for i := 0; i < 24; i++ {
 			year := date.Year() + (int(date.Month())-1+i)/12
 			month := time.Month((int(date.Month())-1+i)%12 + 1)
 

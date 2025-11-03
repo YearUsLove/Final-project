@@ -75,7 +75,6 @@ func Tasks(limit int, search string) ([]*Task, error) {
 	return tasks, nil
 }
 
-// GetTask возвращает задачу по id
 func GetTask(id string) (*Task, error) {
 	row := DB.QueryRow(
 		`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`, id)
@@ -90,7 +89,6 @@ func GetTask(id string) (*Task, error) {
 	return &t, nil
 }
 
-// UpdateTask обновляет задачу по id
 func UpdateTask(task *Task) error {
 	query := `UPDATE scheduler SET date=?, title=?, comment=?, repeat=? WHERE id=?`
 	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
@@ -107,7 +105,6 @@ func UpdateTask(task *Task) error {
 	return nil
 }
 
-// DeleteTask удаляет задачу по id
 func DeleteTask(id string) error {
 	res, err := DB.Exec(`DELETE FROM scheduler WHERE id = ?`, id)
 	if err != nil {
@@ -123,7 +120,6 @@ func DeleteTask(id string) error {
 	return nil
 }
 
-// UpdateDate меняет только дату задачи
 func UpdateDate(next string, id string) error {
 	res, err := DB.Exec(`UPDATE scheduler SET date = ? WHERE id = ?`, next, id)
 	if err != nil {
