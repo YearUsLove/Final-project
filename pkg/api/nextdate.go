@@ -122,7 +122,7 @@ func handleWeeksRule(date, now time.Time, parts []string) (string, error) {
 		if v == 7 {
 			weekdays = append(weekdays, 0)
 		} else {
-			weekdays = append(weekdays, v) 
+			weekdays = append(weekdays, v)
 		}
 	}
 
